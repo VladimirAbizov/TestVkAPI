@@ -1,0 +1,345 @@
+package testvkapi;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class MainJFrame extends javax.swing.JFrame {
+    
+    private static List<String> listMutualFriends = new ArrayList<String>();
+    private static String user_id_1;
+    private static String user_id_2;
+    
+    public static String getHTML(String urlToRead) {
+        URL url;
+        HttpURLConnection conn;
+        BufferedReader rd;
+        String line;
+        String result = "";
+        try {
+            url = new URL(urlToRead);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            rd = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream()));
+            while ((line = rd.readLine()) != null) {
+                result += line;
+            }
+            rd.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+    
+    // Информация о пользователях
+    // Намеренно сделал вывод информации о пользователях и их друзьях по разному.
+    // Просто для практики.
+    // В последствие переделаю по человечески, с объектами User
+    private static String[] userinfo(String user_id) {
+        
+        String otv ="https://api.vk.com/method/users.get?user_ids=" + user_id + "&fields=city,bdate&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60&v=5.71";
+        otv = getHTML(otv);
+      //System.out.println(otv);
+        String[] o = otv.split("\"response\":");
+        otv = o[1];
+        
+        o = otv.split(",");
+        
+        String[] retInfo = new String[4];
+        
+        retInfo[0]="Имя: " + o[1].split("\":\"")[1].split("\"")[0];
+        retInfo[1]="Фамилия: " + o[2].split("\":\"")[1].split("\"")[0];
+        
+        Pattern pat_city = Pattern.compile("city");
+        Pattern pat_bdate = Pattern.compile("bdate");
+        
+        Matcher matcher = pat_bdate.matcher(otv);
+        if(matcher.find())
+            retInfo[2]="Возраст: " + o[3].split("\":\"")[1].split("\"")[0];
+        else {
+            retInfo[2]="Возраст: null";
+            matcher = pat_city.matcher(otv);
+            if(matcher.find())
+                retInfo[3]="Город проживания: " + o[4].split("\":\"")[1].split("\"")[0];
+            else
+                retInfo[3]="Город проживания: null";
+            
+            return retInfo;
+        }
+        matcher = pat_city.matcher(otv);
+        if(matcher.find())
+            retInfo[3]="Город проживания: " + o[5].split("\":\"")[1].split("\"")[0];
+        else
+            retInfo[3]="Город проживания: null";
+        return retInfo;
+    }
+    
+    // Возвращает список ID друзей пользователя
+    private static String[] getfriends(String id) {
+        String otv = getListFriendsApi(id);
+      //System.out.println(otv);
+        String[] o = otv.split("\"response\":");
+        otv = o[1];
+        String nobracket = otv.replaceAll("\\[|\\]|[{}]", "");
+        String[] listFriends = nobracket.split("\\,");
+    
+        return listFriends;
+    }
+    
+    // Преобразование ID общих друзей в объекты
+    private static ArrayList<Friend> transforMutualFriendsOfId() {   
+        ArrayList<Friend> mutualFriends = new ArrayList<Friend>();
+        for(int i = 0;i < listMutualFriends.size(); i++){
+            String[] str = userinfo(listMutualFriends.get(i));
+            mutualFriends.add(new Friend(str)); 
+        }
+        return mutualFriends;
+    }
+    
+    // Запрос информации о друге по его ID
+    private static String friendInfo(String friend_id) {
+        
+        String otv ="https://api.vk.com/method/users.get?user_ids=" + friend_id + "&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60";
+        otv = getHTML(otv);
+      //System.out.println(otv);
+        String[] o = otv.split("\"response\":");
+        otv = o[1];
+        
+        o = otv.split(",");
+        String otv1 = o[1];
+        String otv2 = o[2];
+        
+        String fname =otv1.split("\":\"")[1].split("\"")[0];
+        String sname=otv2.split("\":\"")[1].split("\"")[0];
+        
+        String str = fname.concat(" " + sname);
+        return str;
+    }
+    
+    // Запрос списка друзей пользователя по его ID
+    private static String getListFriendsApi(String id) {
+        String R="https://api.vk.com/method/friends.get?user_id=" + id + "&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60";
+        return getHTML(R);
+    }
+    
+    public MainJFrame() {
+        initComponents();
+    }
+
+    /**
+     * This method is called from within the constructor to initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is always
+     * regenerated by the Form Editor.
+     */
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void initComponents() {
+
+        jLabel1 = new javax.swing.JLabel();
+        jLabel2 = new javax.swing.JLabel();
+        jButtonFindMutualFriends = new javax.swing.JButton();
+        jTextFieldUser1 = new javax.swing.JTextField();
+        jTextFieldUser2 = new javax.swing.JTextField();
+        jLabel3 = new javax.swing.JLabel();
+        jLabel4 = new javax.swing.JLabel();
+        jScrollPaneIOU = new javax.swing.JScrollPane();
+        jTextAreaInfoOfUsers = new javax.swing.JTextArea();
+        jScrollPaneMF = new javax.swing.JScrollPane();
+        jTextAreaMutualFriends = new javax.swing.JTextArea();
+
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+
+        jLabel1.setText("ID пользователя №1:");
+
+        jLabel2.setText("ID пользователя №2:");
+
+        jButtonFindMutualFriends.setText("Найти");
+        jButtonFindMutualFriends.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonFindMutualFriendsActionPerformed(evt);
+            }
+        });
+
+        jTextFieldUser1.setText("124964420");
+
+        jTextFieldUser2.setText("94335692");
+
+        jLabel3.setText("Общие друзья");
+
+        jLabel4.setText("Информация о пользователях");
+
+        jTextAreaInfoOfUsers.setColumns(20);
+        jTextAreaInfoOfUsers.setRows(5);
+        jScrollPaneIOU.setViewportView(jTextAreaInfoOfUsers);
+
+        jTextAreaMutualFriends.setColumns(20);
+        jTextAreaMutualFriends.setRows(5);
+        jScrollPaneMF.setViewportView(jTextAreaMutualFriends);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGap(85, 85, 85)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jLabel1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jTextFieldUser1, javax.swing.GroupLayout.PREFERRED_SIZE, 121, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jLabel2)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jTextFieldUser2, javax.swing.GroupLayout.PREFERRED_SIZE, 121, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jButtonFindMutualFriends)
+                .addContainerGap(134, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addGap(54, 54, 54)
+                .addComponent(jLabel4)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jLabel3)
+                .addGap(101, 101, 101))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPaneIOU)
+                .addGap(18, 18, 18)
+                .addComponent(jScrollPaneMF, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jLabel1)
+                            .addComponent(jTextFieldUser1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jLabel2)
+                            .addComponent(jTextFieldUser2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(jButtonFindMutualFriends, javax.swing.GroupLayout.DEFAULT_SIZE, 49, Short.MAX_VALUE))
+                .addGap(29, 29, 29)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel4)
+                    .addComponent(jLabel3))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jScrollPaneIOU, javax.swing.GroupLayout.DEFAULT_SIZE, 243, Short.MAX_VALUE)
+                    .addComponent(jScrollPaneMF))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
+        jButtonFindMutualFriends.getAccessibleContext().setAccessibleName("jButtonFindMutualFriends");
+        jButtonFindMutualFriends.getAccessibleContext().setAccessibleDescription("");
+        jTextFieldUser1.getAccessibleContext().setAccessibleName("jTextFieldUser1");
+        jTextFieldUser1.getAccessibleContext().setAccessibleDescription("");
+        jTextFieldUser2.getAccessibleContext().setAccessibleName("jTextFieldUser2");
+
+        pack();
+    }// </editor-fold>//GEN-END:initComponents
+
+    // Вывод информации о пользователях
+    private void outputInfoOfUsers(String[] infoOfUser1,String[] infoOfUser2)
+    {
+        for(String str : infoOfUser1)
+        {
+            jTextAreaInfoOfUsers.append(str + "\n");
+        }
+        jTextAreaInfoOfUsers.append("\n");
+        for(String str : infoOfUser2)
+        {
+            jTextAreaInfoOfUsers.append(str + "\n");
+        }
+    }
+    // Кнопка "Найти"
+    private void jButtonFindMutualFriendsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonFindMutualFriendsActionPerformed
+        user_id_1 = jTextFieldUser1.getText();
+        user_id_2 = jTextFieldUser2.getText();
+
+        outputInfoOfUsers(userinfo(user_id_1), userinfo(user_id_2));
+        
+        String[] ids_friends_user_1 = getfriends(user_id_1);
+        String[] ids_friends_user_2 = getfriends(user_id_2);
+
+        // Сравнение ID друзей пользователей для поиска общих друзей
+        for(int i = 0; i<ids_friends_user_1.length;i++)
+        {
+            for(int j = 0; j<ids_friends_user_2.length;j++)
+            {
+                if(ids_friends_user_1[i].equals(ids_friends_user_2[j]))
+                {
+                    listMutualFriends.add(ids_friends_user_1[i]);
+                } 
+            }
+        }
+        
+        
+        ArrayList<Friend> mutualfriends = transforMutualFriendsOfId();
+        // Вывод информации об общих друзьях 
+        for(Friend fr : mutualfriends)
+        {
+            jTextAreaMutualFriends.append(fr.fname + "\n");
+            jTextAreaMutualFriends.append(fr.sname + "\n");
+            jTextAreaMutualFriends.append(fr.bdate + "\n");
+            jTextAreaMutualFriends.append(fr.city + "\n");
+            jTextAreaMutualFriends.append("\n");
+        }
+    }//GEN-LAST:event_jButtonFindMutualFriendsActionPerformed
+
+    
+    
+    public static void main(String args[]) {
+        /* Set the Nimbus look and feel */
+        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
+        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
+         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
+         */
+        try {
+            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (ClassNotFoundException ex) {
+            java.util.logging.Logger.getLogger(MainJFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (InstantiationException ex) {
+            java.util.logging.Logger.getLogger(MainJFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (IllegalAccessException ex) {
+            java.util.logging.Logger.getLogger(MainJFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+            java.util.logging.Logger.getLogger(MainJFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+        //</editor-fold>
+
+        /* Create and display the form */
+        java.awt.EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                new MainJFrame().setVisible(true);
+            }
+        });
+    }
+
+    // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton jButtonFindMutualFriends;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
+    private javax.swing.JLabel jLabel4;
+    private javax.swing.JScrollPane jScrollPaneIOU;
+    private javax.swing.JScrollPane jScrollPaneMF;
+    private javax.swing.JTextArea jTextAreaInfoOfUsers;
+    private javax.swing.JTextArea jTextAreaMutualFriends;
+    private javax.swing.JTextField jTextFieldUser1;
+    private javax.swing.JTextField jTextFieldUser2;
+    // End of variables declaration//GEN-END:variables
+}
