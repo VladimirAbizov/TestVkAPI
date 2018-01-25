@@ -4,17 +4,25 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class MainJFrame extends javax.swing.JFrame {
-    
-    private static List<String> listMutualFriends = new ArrayList<String>();
-    private static String user_id_1;
-    private static String user_id_2;
-    
+
+    private static final String getUserInfo = "https://api.vk.com/method/users.get?user_ids=%userid&fields=city,bdate&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60&v=5.71";
+    private static final String getUsersFriends = "https://api.vk.com/method/friends.get?user_id=%userid&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60";
+
+    /**
+     * Запрос к серверу
+     */
     public static String getHTML(String urlToRead) {
         URL url;
         HttpURLConnection conn;
@@ -36,98 +44,106 @@ public class MainJFrame extends javax.swing.JFrame {
         }
         return result;
     }
-    
-    // Информация о пользователях
-    // Намеренно сделал вывод информации о пользователях и их друзьях по разному.
-    // Просто для практики.
-    // В последствие переделаю по человечески, с объектами User
-    private static String[] userinfo(String user_id) {
-        
-        String otv ="https://api.vk.com/method/users.get?user_ids=" + user_id + "&fields=city,bdate&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60&v=5.71";
+
+    /**
+     * Информация о пользователе
+     */
+    private static User userinfo(String user_id) {
+        String otv = getUserInfo.replace("%userid", user_id);
         otv = getHTML(otv);
-      //System.out.println(otv);
-        String[] o = otv.split("\"response\":");
-        otv = o[1];
-        
-        o = otv.split(",");
-        
-        String[] retInfo = new String[4];
-        
-        retInfo[0]="Имя: " + o[1].split("\":\"")[1].split("\"")[0];
-        retInfo[1]="Фамилия: " + o[2].split("\":\"")[1].split("\"")[0];
-        
-        Pattern pat_city = Pattern.compile("city");
-        Pattern pat_bdate = Pattern.compile("bdate");
-        
-        Matcher matcher = pat_bdate.matcher(otv);
-        if(matcher.find())
-            retInfo[2]="Возраст: " + o[3].split("\":\"")[1].split("\"")[0];
-        else {
-            retInfo[2]="Возраст: null";
-            matcher = pat_city.matcher(otv);
-            if(matcher.find())
-                retInfo[3]="Город проживания: " + o[4].split("\":\"")[1].split("\"")[0];
-            else
-                retInfo[3]="Город проживания: null";
-            
-            return retInfo;
+        User user = parseJson(otv);
+        return user;
+    }
+
+    /**
+     * Парсинг JSON-строки с форматом даты "день.месяц.год"
+     */
+    private static User parseJson(String jsonString) {
+        User user = null;
+        JSONObject infoUser = null;
+
+        try {
+            JSONParser parser = new JSONParser();
+            Object obj = parser.parse(jsonString);
+            JSONObject jsonObject = (JSONObject) obj;
+            infoUser = (JSONObject) ((JSONArray) jsonObject.get("response")).get(0);
+
+            user = new User();
+            user.setFirstname((String) infoUser.get("first_name"));
+            user.setSurname((String) infoUser.get("last_name"));
+
+            SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy");
+            String tempDate = (String) infoUser.get("bdate");
+            if (tempDate != null) {
+                Date date = format.parse(tempDate);
+                user.setBithdate(date);
+                user.setNoyear(false);
+            }
+
+            JSONObject city = (JSONObject) infoUser.get("city");
+            if (city != null) {
+                user.setCity((String) city.get("title"));
+            }
+
+            return user;
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return null;
+        } catch (java.text.ParseException e) {
+            parseJsonOnError(infoUser, user);
+            return user;
         }
-        matcher = pat_city.matcher(otv);
-        if(matcher.find())
-            retInfo[3]="Город проживания: " + o[5].split("\":\"")[1].split("\"")[0];
-        else
-            retInfo[3]="Город проживания: null";
-        return retInfo;
     }
-    
-    // Возвращает список ID друзей пользователя
-    private static String[] getfriends(String id) {
-        String otv = getListFriendsApi(id);
-      //System.out.println(otv);
-        String[] o = otv.split("\"response\":");
-        otv = o[1];
-        String nobracket = otv.replaceAll("\\[|\\]|[{}]", "");
-        String[] listFriends = nobracket.split("\\,");
-    
-        return listFriends;
+
+    /**
+     * Парсинг JSON-строки с форматом даты "день.месяц"
+     */
+    private static void parseJsonOnError(JSONObject infoUser, User user) {
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM");
+            String stringDate = (String) infoUser.get("bdate");
+            if (stringDate != null) {
+                Date tempDate = dateFormat.parse(stringDate);
+                user.setBithdate(tempDate);
+                user.setNoyear(true);
+            }
+        } catch (java.text.ParseException e) {
+            e.printStackTrace();
+        }
     }
-    
-    // Преобразование ID общих друзей в объекты
-    private static ArrayList<Friend> transforMutualFriendsOfId() {   
-        ArrayList<Friend> mutualFriends = new ArrayList<Friend>();
-        for(int i = 0;i < listMutualFriends.size(); i++){
-            String[] str = userinfo(listMutualFriends.get(i));
-            mutualFriends.add(new Friend(str)); 
+
+    /**
+     * Возвращает список друзей пользователя
+     */
+    private static ArrayList<Long> getFriends(String id) {
+        ArrayList<Long> listFriends = null;
+        try {
+            String url = getUsersFriends.replace("%userid", id);
+            String jsonString = getHTML(url);
+            JSONParser parser = new JSONParser();
+            Object obj = parser.parse(jsonString);
+            JSONObject jsonObject = (JSONObject) obj;
+            JSONArray jar = (JSONArray) jsonObject.get("response");
+            listFriends = jar;
+            return listFriends;
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Преобразование ID общих друзей в объекты
+     */
+    private static ArrayList<User> transforMutualFriendsOfId(List<Long> listMutualFriendsID) {
+        ArrayList<User> mutualFriends = new ArrayList<User>();
+        for (Long idUser : listMutualFriendsID) {
+            User user = userinfo(idUser.toString());
+            mutualFriends.add(user);
         }
         return mutualFriends;
     }
-    
-    // Запрос информации о друге по его ID
-    private static String friendInfo(String friend_id) {
-        
-        String otv ="https://api.vk.com/method/users.get?user_ids=" + friend_id + "&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60";
-        otv = getHTML(otv);
-      //System.out.println(otv);
-        String[] o = otv.split("\"response\":");
-        otv = o[1];
-        
-        o = otv.split(",");
-        String otv1 = o[1];
-        String otv2 = o[2];
-        
-        String fname =otv1.split("\":\"")[1].split("\"")[0];
-        String sname=otv2.split("\":\"")[1].split("\"")[0];
-        
-        String str = fname.concat(" " + sname);
-        return str;
-    }
-    
-    // Запрос списка друзей пользователя по его ID
-    private static String getListFriendsApi(String id) {
-        String R="https://api.vk.com/method/friends.get?user_id=" + id + "&access_token=d13f7790d13f7790d13f7790bcd15fd2abdd13fd13f77908b6261c2eb3669f984516d60";
-        return getHTML(R);
-    }
-    
+
     public MainJFrame() {
         initComponents();
     }
@@ -247,56 +263,94 @@ public class MainJFrame extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    // Вывод информации о пользователях
-    private void outputInfoOfUsers(String[] infoOfUser1,String[] infoOfUser2)
-    {
-        for(String str : infoOfUser1)
-        {
-            jTextAreaInfoOfUsers.append(str + "\n");
-        }
-        jTextAreaInfoOfUsers.append("\n");
-        for(String str : infoOfUser2)
-        {
-            jTextAreaInfoOfUsers.append(str + "\n");
-        }
-    }
-    // Кнопка "Найти"
-    private void jButtonFindMutualFriendsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonFindMutualFriendsActionPerformed
-        user_id_1 = jTextFieldUser1.getText();
-        user_id_2 = jTextFieldUser2.getText();
-
-        outputInfoOfUsers(userinfo(user_id_1), userinfo(user_id_2));
-        
-        String[] ids_friends_user_1 = getfriends(user_id_1);
-        String[] ids_friends_user_2 = getfriends(user_id_2);
-
-        // Сравнение ID друзей пользователей для поиска общих друзей
-        for(int i = 0; i<ids_friends_user_1.length;i++)
-        {
-            for(int j = 0; j<ids_friends_user_2.length;j++)
-            {
-                if(ids_friends_user_1[i].equals(ids_friends_user_2[j]))
-                {
-                    listMutualFriends.add(ids_friends_user_1[i]);
-                } 
+    /**
+     * Вывод информации о пользователях
+     */
+    private void outputInfoOfUsers(User user_1, User user_2) {
+        jTextAreaInfoOfUsers.append(user_1.getFirstname() + "\n");
+        jTextAreaInfoOfUsers.append(user_1.getSurname() + "\n");
+        if (user_1.getBithdate() != null) {
+            if (user_1.getNoyear()) {
+                jTextAreaInfoOfUsers.append(formatDateInStringNoYear(user_1.getBithdate()) + "\n");
+            } else {
+                jTextAreaInfoOfUsers.append(formatDateInString(user_1.getBithdate()) + "\n");
             }
         }
-        
-        
-        ArrayList<Friend> mutualfriends = transforMutualFriendsOfId();
-        // Вывод информации об общих друзьях 
-        for(Friend fr : mutualfriends)
-        {
-            jTextAreaMutualFriends.append(fr.fname + "\n");
-            jTextAreaMutualFriends.append(fr.sname + "\n");
-            jTextAreaMutualFriends.append(fr.bdate + "\n");
-            jTextAreaMutualFriends.append(fr.city + "\n");
+        jTextAreaInfoOfUsers.append(user_1.getCity() + "\n");
+
+        jTextAreaInfoOfUsers.append("\n");
+
+        jTextAreaInfoOfUsers.append(user_2.getFirstname() + "\n");
+        jTextAreaInfoOfUsers.append(user_2.getSurname() + "\n");
+        if (user_2.getBithdate() != null) {
+            if (user_2.getNoyear()) {
+                jTextAreaInfoOfUsers.append(formatDateInStringNoYear(user_2.getBithdate()) + "\n");
+            } else {
+                jTextAreaInfoOfUsers.append(formatDateInString(user_2.getBithdate()) + "\n");
+            }
+        }
+        jTextAreaInfoOfUsers.append(user_2.getCity() + "\n");
+    }
+
+    /**
+     * Кнопка "Найти"
+     */
+    private void jButtonFindMutualFriendsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonFindMutualFriendsActionPerformed
+        String user_id_1 = jTextFieldUser1.getText();
+        String user_id_2 = jTextFieldUser2.getText();
+
+        outputInfoOfUsers(userinfo(user_id_1), userinfo(user_id_2));
+
+        List<Long> ids_friends_user_1 = getFriends(user_id_1);
+        List<Long> ids_friends_user_2 = getFriends(user_id_2);
+
+        ArrayList<Long> listMutualFriendsID = new ArrayList<Long>();
+
+        for (Long id_fr_user_1 : ids_friends_user_1) {
+            for (Long id_fr_user_2 : ids_friends_user_2) {
+                if (id_fr_user_1.equals(id_fr_user_2)) {
+                    listMutualFriendsID.add(id_fr_user_1);
+                }
+            }
+        }
+
+        ArrayList<User> mutualfriends = transforMutualFriendsOfId(listMutualFriendsID);
+
+        for (User fr : mutualfriends) {
+            jTextAreaMutualFriends.append(fr.getFirstname() + "\n");
+            jTextAreaMutualFriends.append(fr.getSurname() + "\n");
+            if (fr.getBithdate() != null) {
+                if (fr.getNoyear()) {
+                    jTextAreaMutualFriends.append(formatDateInStringNoYear(fr.getBithdate()) + "\n");
+                } else {
+                    jTextAreaMutualFriends.append(formatDateInString(fr.getBithdate()) + "\n");
+                }
+            }
+            jTextAreaMutualFriends.append(fr.getCity() + "\n");
             jTextAreaMutualFriends.append("\n");
         }
     }//GEN-LAST:event_jButtonFindMutualFriendsActionPerformed
 
-    
-    
+    /**
+     * Форматирование даты для вывода в текстовом поле
+     */
+    private static String formatDateInString(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        String str = String.valueOf(cal.get(Calendar.DAY_OF_MONTH)) + '.' + String.valueOf(cal.get(Calendar.MONTH) + 1) + '.' + String.valueOf(cal.get(Calendar.YEAR));
+        return str;
+    }
+
+    /**
+     * Форматирование даты без года для вывода в текстовом поле
+     */
+    private static String formatDateInStringNoYear(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        String str = String.valueOf(cal.get(Calendar.DAY_OF_MONTH)) + '.' + String.valueOf(cal.get(Calendar.MONTH) + 1);
+        return str;
+    }
+
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
